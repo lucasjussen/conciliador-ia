@@ -12,8 +12,9 @@ clara, e cada decisão dela passa por uma pessoa e fica registrada.
 LangGraph investiga, acerta 9 de 9 e só grava com aprovação humana (precisão 64% → 100%); e-mails e
 PDFs de clientes são lidos pelo Claude Haiku e conferidos no banco (35/35 campos, golpe por prompt
 injection bloqueado). Integração por API (FastAPI), servidor MCP e n8n. Avaliações com 34 e-mails
-(12 ataques) e 30 pagamentos, com custo por caso.
-Stack: Python, PostgreSQL, LangGraph, Redis, Claude API, Langfuse, FastAPI, MCP, n8n, Docker.
+(12 ataques) e 30 pagamentos, com custo por caso. Painel no Power BI com valor em risco, histórico
+diário e atraso, lendo visões do Postgres com um usuário só de leitura.
+Stack: Python, PostgreSQL, LangGraph, Redis, Claude API, Langfuse, FastAPI, MCP, n8n, Power BI, Docker.
 
 ## Resultados
 
@@ -196,6 +197,24 @@ sem palavra-chave) depende da IA. Por isso as duas camadas.
 Preços usados no cálculo (por milhão de tokens): Haiku 5.5 US$ 0,10 entrada / 0,50 saída; Sonnet 5.5
 US$ 2 / 10. Cada execução grava um JSON em `data/evals/resultados/` para comparar versões.
 
+## Fase 6: painel no Power BI
+
+![painel](powerbi/referencia-painel.png)
+
+**Decisão:** a conta fica no banco, não no Power BI. As visões `vw_bi_*` já entregam valor em risco
+por linha, cliente, dias e faixa de atraso; o painel só soma e desenha. Assim o número do painel é o
+mesmo da API, do e-mail do n8n e do MCP: R$ 45.186,23 em 16/11/2026 (há um teste que garante isso).
+
+- **Histórico:** cada conciliação (a do n8n, toda manhã) grava um retrato do dia em
+  `historico_conciliacao`. `python -m app.bi` preenche as semanas anteriores.
+- **Olhar o passado direito:** para recalcular uma data antiga, as regras só consideram notas já
+  emitidas e pagamentos já recebidos naquela data. Sem isso, o histórico usaria pagamentos do futuro.
+- **Acesso:** o Power BI entra com o usuário `powerbi`, que só tem SELECT nas visões e tabelas.
+- **Leitura do painel:** 13 notas vencidas sem pagamento somam 55% do risco, e 7 delas passam de 60 dias.
+  O alerta útil para o financeiro não é "39 divergências", é "7 notas passaram de 60 dias sem pagamento".
+
+Passo a passo para montar: [`powerbi/GUIA.md`](powerbi/GUIA.md). Medidas DAX: [`powerbi/medidas.dax`](powerbi/medidas.dax).
+
 ## Rodar
 
 ```bash
@@ -211,6 +230,7 @@ python -m app.documentos             # fase 3: lê a caixa de entrada e confere 
 docker compose up -d --build         # fase 4: sobe também a API (porta 8000) e o n8n (porta 5678)
 python -m app.evals documentos --modelos claude-haiku-5-5,claude-sonnet-5-5   # fase 5 (recria o banco)
 python -m app.evals agente --seeds 7,11,23                                     # fase 5 (recria o banco)
+python -m app.bi                     # fase 6: visões do painel + histórico de 15/10 a 16/11
 pytest -q                            # testes (o do agente usa um modelo falso, sem custo)
 ```
 
@@ -219,6 +239,7 @@ pytest -q                            # testes (o do agente usa um modelo falso, 
 ```
 db/schema.sql        tabelas: clientes, contratos, notas_fiscais, pagamentos, conciliacao_pagamentos
 db/regras.sql        função divergencias(data_base): as 6 regras em SQL
+db/bi.sql            histórico diário, visões vw_bi_* e usuário só de leitura do Power BI
 app/casamento.py     liga pagamento -> nota: número citado, depois mês citado, depois CNPJ + valor (FIFO)
 app/gerar_dados.py   base fictícia com erros plantados + gabarito
 app/avaliar.py       precisão e recall por tipo
@@ -236,6 +257,8 @@ app/mcp_server.py    servidor MCP somente leitura
 app/seguranca.py     detector de prompt injection por regra (segunda barreira)
 app/evals_documentos.py  34 e-mails de avaliação com 12 ataques + gabarito
 app/evals.py         suítes de avaliação com custo, tokens e latência
+app/bi.py            prepara o banco para o painel e preenche o histórico
+powerbi/             guia passo a passo, medidas DAX e imagem de referência do painel
 n8n/                 workflow de execução diária com e-mail
 Dockerfile           imagem da API
 tests/               testes unitários e de integração (a integração trava a linha de base)
@@ -250,4 +273,4 @@ tests/               testes unitários e de integração (a integração trava a
 | **3. Documentos** ✅ | notas e contestações em PDF ou e-mail extraídas com o Claude (saída estruturada) e validadas pelas regras | extração com IA, validação |
 | **4. MCP e API** ✅ | servidor MCP com as ferramentas do conciliador; FastAPI; n8n agenda a execução diária e avisa por e-mail | MCP, integração, n8n |
 | **5. Evals e segurança** ✅ | gabaritos maiores, custo por lote, % resolvido sem humano; defesa contra instruções escondidas em PDFs | LLMOps, segurança |
-| **6. Painel e apresentação** | Power BI lendo o Postgres (divergências, valor em risco, SLA); vídeo e post | BI, comunicação de resultado |
+| **6. Painel e apresentação** ✅ | Power BI lendo visões do Postgres (valor em risco, histórico diário, faixas de atraso, agente e documentos) | BI, comunicação de resultado |

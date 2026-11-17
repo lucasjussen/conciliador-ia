@@ -218,7 +218,7 @@ def casos_dificeis(rng, data_base, clientes, contratos, notas, pagamentos, erro_
 
 def gravar(dados: dict) -> None:
     with connect() as conn:
-        apply_sql(conn, "schema.sql", "regras.sql")
+        apply_sql(conn, "schema.sql", "regras.sql", "bi.sql")
         with conn.cursor() as cur:
             cur.executemany("INSERT INTO clientes (id, nome, cnpj) VALUES (%(id)s, %(nome)s, %(cnpj)s)", dados["clientes"])
             cur.executemany(

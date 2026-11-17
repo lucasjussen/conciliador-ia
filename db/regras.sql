@@ -40,12 +40,12 @@ notas_validas AS (
            row_number() OVER (PARTITION BY contrato_id, competencia ORDER BY numero) AS ordem,
            count(*)     OVER (PARTITION BY contrato_id, competencia)                 AS qtd
     FROM notas_fiscais n
-    WHERE NOT n.cancelada
+    WHERE NOT n.cancelada AND n.emissao <= data_base           -- e só notas já emitidas naquela data
 ),
 pagos AS (
     SELECT cp.nota_id, sum(coalesce(cp.valor_alocado, p.valor)) AS total_pago, string_agg(p.id::text, ',') AS pagamentos
     FROM conciliacao_pagamentos cp JOIN pagamentos p ON p.id = cp.pagamento_id
-    WHERE cp.nota_id IS NOT NULL
+    WHERE cp.nota_id IS NOT NULL AND p.data <= data_base   -- olhando o passado: só o que já tinha sido pago
     GROUP BY cp.nota_id
 )
 -- 1. Contrato vigente sem nota na competência

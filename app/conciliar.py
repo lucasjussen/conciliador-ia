@@ -19,9 +19,11 @@ OUT = Path(__file__).resolve().parents[1] / "data" / "divergencias.csv"
 
 def conciliar(data_base: date) -> tuple[dict, list[dict]]:
     with connect() as conn:
-        apply_sql(conn, "regras.sql")  # garante a versão atual das regras
+        apply_sql(conn, "regras.sql", "bi.sql")  # garante a versão atual das regras e das visões do painel
         resumo = casamento.executar(conn, data_base)
         divs = conn.execute("SELECT * FROM divergencias(%s) ORDER BY tipo, ref", (data_base,)).fetchall()
+        conn.execute("SELECT registrar_historico(%s)", (data_base,))  # retrato do dia para o painel
+        conn.commit()
     return resumo, divs
 
 

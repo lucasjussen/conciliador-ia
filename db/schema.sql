@@ -3,7 +3,7 @@
 -- ser paga até o vencimento. A conciliação cruza contrato x nota x pagamento.
 
 DROP VIEW IF EXISTS vw_divergencias CASCADE;
-DROP TABLE IF EXISTS documentos, propostas_agente, conciliacao_pagamentos, pagamentos, notas_fiscais, contratos, clientes CASCADE;
+DROP TABLE IF EXISTS historico_conciliacao, documentos, propostas_agente, conciliacao_pagamentos, pagamentos, notas_fiscais, contratos, clientes CASCADE;
 
 CREATE TABLE clientes (
     id      serial PRIMARY KEY,

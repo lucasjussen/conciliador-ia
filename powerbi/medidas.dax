@@ -1,0 +1,39 @@
+// Medidas do painel. No Power BI: Página Inicial > Inserir dados > crie uma tabela vazia
+// chamada "Medidas" e cole cada medida com "Nova medida".
+
+Divergências = COUNTROWS ( vw_bi_divergencias )
+
+Valor em risco = SUM ( vw_bi_divergencias[valor_em_risco] )
+
+Clientes afetados =
+CALCULATE (
+    DISTINCTCOUNT ( vw_bi_divergencias[cliente] ),
+    vw_bi_divergencias[cliente] <> "Pagador desconhecido"
+)
+
+Vencidas sem pagamento =
+CALCULATE ( [Divergências], vw_bi_divergencias[tipo] = "NAO_PAGO_VENCIDO" )
+
+Atraso médio (dias) = AVERAGE ( vw_bi_divergencias[dias_atraso] )
+
+Risco no histórico = SUM ( vw_bi_historico[valor_em_risco] )
+
+Variação do risco em 7 dias =
+VAR ultimo = CALCULATE ( MAX ( vw_bi_historico[data_base] ), ALL ( vw_bi_historico ) )
+VAR atual =
+    CALCULATE ( [Risco no histórico], ALL ( vw_bi_historico[data_base] ), vw_bi_historico[data_base] = ultimo )
+VAR antes =
+    CALCULATE ( [Risco no histórico], ALL ( vw_bi_historico[data_base] ), vw_bi_historico[data_base] = ultimo - 7 )
+RETURN
+    DIVIDE ( atual - antes, antes )
+
+Propostas do agente = COUNTROWS ( vw_bi_agente )
+
+% resolvível sem humano =
+DIVIDE (
+    CALCULATE ( COUNTROWS ( vw_bi_agente ), vw_bi_agente[resolvivel_sem_humano] = TRUE () ),
+    [Propostas do agente]
+)
+
+Alertas de segurança =
+CALCULATE ( COUNTROWS ( vw_bi_documentos ), vw_bi_documentos[alerta_seguranca] = TRUE () )
