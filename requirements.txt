@@ -1,0 +1,6 @@
+# Fase 1: dados e regras
+psycopg[binary]>=3.2,<4
+python-dotenv>=1.0
+pytest>=8
+# Fase 2 em diante (agente): ver requirements do agente-memoria
+# langgraph, langgraph-checkpoint-redis, langchain-anthropic, langfuse, redis

@@ -1,0 +1,21 @@
+# Fase 1: só o Postgres com os dados de faturamento.
+# Na fase 2 entram aqui o Redis 8 e o Langfuse (mesmo bloco do projeto agente-memoria).
+services:
+  postgres:
+    image: postgres:17
+    container_name: conciliador-db
+    environment:
+      POSTGRES_USER: conc
+      POSTGRES_PASSWORD: conc
+      POSTGRES_DB: conciliador
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U conc -d conciliador"]
+      interval: 3s
+      retries: 10
+
+volumes:
+  pg_data:

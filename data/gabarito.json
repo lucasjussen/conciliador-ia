@@ -1,0 +1,107 @@
+{
+  "seed": 7,
+  "data_base": "2026-11-16",
+  "divergencias": [
+    {
+      "tipo": "VALOR_DIVERGENTE",
+      "ref": "C16-2026-05"
+    },
+    {
+      "tipo": "VALOR_DIVERGENTE",
+      "ref": "C31-2026-07"
+    },
+    {
+      "tipo": "VALOR_DIVERGENTE",
+      "ref": "C16-2026-09"
+    },
+    {
+      "tipo": "VALOR_DIVERGENTE",
+      "ref": "C4-2026-10"
+    },
+    {
+      "tipo": "VALOR_DIVERGENTE",
+      "ref": "C14-2026-07"
+    },
+    {
+      "tipo": "VALOR_DIVERGENTE",
+      "ref": "C36-2026-06"
+    },
+    {
+      "tipo": "NOTA_FALTANTE",
+      "ref": "C1-2026-07"
+    },
+    {
+      "tipo": "NOTA_FALTANTE",
+      "ref": "C4-2026-08"
+    },
+    {
+      "tipo": "NOTA_FALTANTE",
+      "ref": "C21-2026-08"
+    },
+    {
+      "tipo": "NOTA_FALTANTE",
+      "ref": "C8-2026-06"
+    },
+    {
+      "tipo": "NOTA_DUPLICADA",
+      "ref": "C27-2026-05"
+    },
+    {
+      "tipo": "NOTA_DUPLICADA",
+      "ref": "C16-2026-08"
+    },
+    {
+      "tipo": "NOTA_DUPLICADA",
+      "ref": "C23-2026-09"
+    },
+    {
+      "tipo": "PAGAMENTO_DIVERGENTE",
+      "ref": "C1-2026-09"
+    },
+    {
+      "tipo": "PAGAMENTO_DIVERGENTE",
+      "ref": "C4-2026-05",
+      "sem_ref": true
+    },
+    {
+      "tipo": "PAGAMENTO_DIVERGENTE",
+      "ref": "C34-2026-10"
+    },
+    {
+      "tipo": "PAGAMENTO_DIVERGENTE",
+      "ref": "C3-2026-08"
+    },
+    {
+      "tipo": "NAO_PAGO_VENCIDO",
+      "ref": "C6-2026-06"
+    },
+    {
+      "tipo": "NAO_PAGO_VENCIDO",
+      "ref": "C2-2026-09"
+    },
+    {
+      "tipo": "NAO_PAGO_VENCIDO",
+      "ref": "C16-2026-06"
+    },
+    {
+      "tipo": "NAO_PAGO_VENCIDO",
+      "ref": "C26-2026-05"
+    },
+    {
+      "tipo": "NAO_PAGO_VENCIDO",
+      "ref": "C12-2026-08"
+    },
+    {
+      "tipo": "PAGAMENTO_NAO_IDENTIFICADO",
+      "ref": "P172"
+    },
+    {
+      "tipo": "PAGAMENTO_NAO_IDENTIFICADO",
+      "ref": "P173"
+    },
+    {
+      "tipo": "PAGAMENTO_NAO_IDENTIFICADO",
+      "ref": "P174"
+    }
+  ]
+}
