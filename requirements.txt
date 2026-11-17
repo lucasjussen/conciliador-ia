@@ -2,5 +2,10 @@
 psycopg[binary]>=3.2,<4
 python-dotenv>=1.0
 pytest>=8
-# Fase 2 em diante (agente): ver requirements do agente-memoria
-# langgraph, langgraph-checkpoint-redis, langchain-anthropic, langfuse, redis
+# Fase 2: agente
+langgraph>=1.2,<2
+langgraph-checkpoint-redis>=0.6,<0.7
+langchain-anthropic>=1.7,<2
+langchain-core>=1.8,<2
+redis>=6,<9
+langfuse>=5.2,<6

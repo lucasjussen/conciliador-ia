@@ -125,7 +125,7 @@ def gerar(seed: int, data_base: date) -> dict:
                 ref = f"Mensalidade {comp:%m/%Y}"  # um caso sem número: as regras não conseguem casar
                 next(g for g in gabarito if g["ref"] == f"C{c['id']}-{comp:%Y-%m}")["sem_ref"] = True
         pagamentos.append({"id": len(pagamentos) + 1, "data": data_pg, "valor": valor_pg,
-                           "cnpj_pagador": cnpj_de[c["id"]], "referencia": ref})
+                           "cnpj_pagador": cnpj_de[c["id"]], "referencia": ref, "_nota": nota["numero"]})
 
     # entradas no extrato sem nota correspondente
     for _ in range(PLANO_DE_ERROS["PAGAMENTO_NAO_IDENTIFICADO"]):
@@ -136,8 +136,76 @@ def gerar(seed: int, data_base: date) -> dict:
                            "referencia": rng.choice(["Adiantamento", f"NF {rng.randint(9000, 9999)}", "Acerto"])})
         gabarito.append({"tipo": "PAGAMENTO_NAO_IDENTIFICADO", "ref": f"P{pid}"})
 
+    ligacoes = [{"pagamento_id": int(g["ref"][1:]), "notas": []} for g in gabarito
+                if g["tipo"] == "PAGAMENTO_NAO_IDENTIFICADO"]  # o certo aqui é "não sei"
+    casos_dificeis(rng, data_base, clientes, contratos, notas, pagamentos, erro_do_slot, ligacoes)
+
     return {"clientes": clientes, "contratos": contratos, "notas": notas,
-            "pagamentos": sorted(pagamentos, key=lambda p: p["id"]), "gabarito": gabarito}
+            "pagamentos": sorted(pagamentos, key=lambda p: p["id"]), "gabarito": gabarito,
+            "ligacoes": ligacoes}
+
+
+MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto",
+         "setembro", "outubro", "novembro", "dezembro"]
+
+
+def casos_dificeis(rng, data_base, clientes, contratos, notas, pagamentos, erro_do_slot, ligacoes, n=2):
+    """Fase 2: pagamentos que NENHUMA regra consegue ligar com segurança.
+
+    - AGRUPADO: um pagamento quita duas notas ("Pgto julho e agosto").
+    - TERCEIRO: quem paga é outra empresa; só o nome do cliente aparece na referência.
+    - FILIAL:   pago pelo CNPJ de uma filial (mesma raiz de 8 dígitos), sem referência útil.
+
+    Não são erros de faturamento: ligados corretamente, não geram divergência.
+    O gabarito guarda a ligação certa para medir o agente.
+    """
+    cliente_de = {c["id"]: next(cl for cl in clientes if cl["id"] == c["cliente_id"]) for c in contratos}
+    usadas = set()
+
+    def elegivel(nt):
+        pg = [p for p in pagamentos if p.get("_nota") == nt["numero"]]
+        return (nt["vencimento"] < data_base - timedelta(days=3) and nt["numero"] not in usadas
+                and (nt["contrato_id"], nt["competencia"]) not in erro_do_slot and len(pg) == 1
+                and pg[0]["valor"] == nt["valor"])
+
+    def tirar_pagamento(nt):
+        usadas.add(nt["numero"])
+        pagamentos[:] = [p for p in pagamentos if p.get("_nota") != nt["numero"]]
+
+    def novo_id():
+        return max(p["id"] for p in pagamentos) + 1
+
+    candidatas = [nt for nt in notas if elegivel(nt)]
+    rng.shuffle(candidatas)
+
+    # AGRUPADO: duas notas seguidas do mesmo contrato
+    feitos = 0
+    for a in candidatas:
+        b = next((x for x in notas if x["contrato_id"] == a["contrato_id"]
+                  and x["competencia"] == add_month(a["competencia"]) and elegivel(x)), None)
+        if feitos == n or not b or not elegivel(a):
+            continue
+        tirar_pagamento(a), tirar_pagamento(b)
+        pid = novo_id()
+        pagamentos.append({"id": pid, "data": min(b["vencimento"] + timedelta(days=rng.randint(0, 3)),
+                                                   data_base - timedelta(days=1)),
+                           "valor": a["valor"] + b["valor"], "cnpj_pagador": cliente_de[a["contrato_id"]]["cnpj"],
+                           "referencia": f"Pgto {MESES[a['competencia'].month - 1]} e {MESES[b['competencia'].month - 1]}"})
+        ligacoes.append({"pagamento_id": pid, "notas": [a["numero"], b["numero"]], "caso": "AGRUPADO"})
+        feitos += 1
+
+    for caso in ("TERCEIRO", "FILIAL"):
+        for nt in [x for x in candidatas if elegivel(x)][:n]:
+            cl = cliente_de[nt["contrato_id"]]
+            tirar_pagamento(nt)
+            pid = novo_id()
+            if caso == "TERCEIRO":
+                cnpj_pg, ref = cnpj(rng), f"PIX pagamento {cl['nome'].split()[0]}"
+            else:
+                cnpj_pg, ref = cl["cnpj"][:8] + "".join(str(rng.randint(0, 9)) for _ in range(6)), "Pagamento de servicos"
+            pagamentos.append({"id": pid, "data": nt["vencimento"] + timedelta(days=rng.randint(0, 2)),
+                               "valor": nt["valor"], "cnpj_pagador": cnpj_pg, "referencia": ref})
+            ligacoes.append({"pagamento_id": pid, "notas": [nt["numero"]], "caso": caso})
 
 
 def gravar(dados: dict) -> None:
@@ -170,10 +238,12 @@ def main() -> None:
     gravar(dados)
     DATA_DIR.mkdir(exist_ok=True)
     (DATA_DIR / "gabarito.json").write_text(
-        json.dumps({"seed": a.seed, "data_base": a.data_base.isoformat(), "divergencias": dados["gabarito"]},
+        json.dumps({"seed": a.seed, "data_base": a.data_base.isoformat(), "divergencias": dados["gabarito"],
+                    "ligacoes": dados["ligacoes"]},
                    ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"{len(dados['clientes'])} clientes, {len(dados['contratos'])} contratos, {len(dados['notas'])} notas, "
-          f"{len(dados['pagamentos'])} pagamentos, {len(dados['gabarito'])} erros plantados -> data/gabarito.json")
+          f"{len(dados['pagamentos'])} pagamentos, {len(dados['gabarito'])} erros plantados, "
+          f"{sum(1 for l in dados['ligacoes'] if l['notas'])} casos difíceis -> data/gabarito.json")
 
 
 if __name__ == "__main__":

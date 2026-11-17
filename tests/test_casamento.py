@@ -39,7 +39,8 @@ def test_valor_diferente_sem_referencia_fica_nao_identificado():
     r = casar(notas, [pag(1, "A", "90.00", "mensalidade")])
     assert r[0].nota_id is None and r[0].metodo is None
 
+
 def test_casa_pela_competencia_citada():
-        notas = [nota(1, 1001, "A", "100.00", date(2026, 7, 1)), nota(2, 1002, "A", "100.00", date(2026, 8, 1))]
-        r = casar(notas, [pag(1, "A", "100.00", "Mensalidade 08/2026")])
-        assert (r[0].nota_id, r[0].metodo) == (2, "competencia")
+    notas = [nota(1, 1001, "A", "100.00", date(2026, 7, 1)), nota(2, 1002, "A", "100.00", date(2026, 8, 1))]
+    r = casar(notas, [pag(1, "A", "100.00", "Mensalidade 08/2026")])
+    assert (r[0].nota_id, r[0].metodo) == (2, "competencia")

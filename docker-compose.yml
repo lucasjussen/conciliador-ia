@@ -1,6 +1,5 @@
-# Fase 1: só o Postgres com os dados de faturamento.
-# Na fase 2 entram aqui o Redis 8 e o Langfuse (mesmo bloco do projeto agente-memoria).
 services:
+  # Dados de faturamento (fase 1)
   postgres:
     image: postgres:17
     container_name: conciliador-db
@@ -17,5 +16,21 @@ services:
       interval: 3s
       retries: 10
 
+  # Checkpointer do agente (fase 2): guarda as investigações pausadas esperando aprovação.
+  # Redis 8 já traz os módulos JSON e Search que o RedisSaver usa. AOF = sobrevive a reinício.
+  redis:
+    image: redis:8
+    container_name: conciliador-redis
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 10
+
 volumes:
   pg_data:
+  redis_data:

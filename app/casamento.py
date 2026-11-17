@@ -1,13 +1,12 @@
 """Casamento pagamento -> nota fiscal.
 
 É a parte "difícil" da conciliação: o extrato só traz CNPJ, valor, data e uma
-referência em texto livre. Duas regras determinísticas, em ordem de confiança:
+referência em texto livre. Três regras determinísticas, em ordem de confiança:
 
   1. numero:     a referência cita o número da nota ("NF 1023", "nota 1023") e o
                  CNPJ do pagador é o do cliente da nota.
-
- 2. ler_data:   ler MM/AAAA na referência e ligue o pagamento à nota daquela competência e daquele cnpj.
- 
+  2. competencia: a referência cita o mês ("Mensalidade 07/2026") e existe nota
+                 daquele mês para o mesmo CNPJ (preferindo a de mesmo valor).
   3. cnpj_valor: mesmo CNPJ e valor exato de uma nota ainda em aberto; havendo
                  mais de uma, a de competência mais antiga (FIFO).
 
@@ -15,12 +14,11 @@ O que não casa fica com nota_id NULL e vira PAGAMENTO_NAO_IDENTIFICADO.
 Esses casos são a fila do agente de IA na fase 2.
 """
 import re
-from dataclasses import dataclass
 from datetime import date
+from dataclasses import dataclass
 from typing import Optional
 
 NF_RE = re.compile(r"\b(?:nf|nfs-?e|nota)\D{0,4}(\d{3,7})\b", re.IGNORECASE)
-
 MES_RE = re.compile(r"\b(0[1-9]|1[0-2])/(20\d{2})\b")
 
 
@@ -58,6 +56,7 @@ def casar(notas: list[dict], pagamentos: list[dict]) -> list[Match]:
             out.append(Match(p["id"], nota["id"], "numero"))
             usadas_por_valor.add(nota["id"])
             continue
+
         comp = competencia_citada(p["referencia"])
         if comp:
             candidatas = [
@@ -72,7 +71,7 @@ def casar(notas: list[dict], pagamentos: list[dict]) -> list[Match]:
                 out.append(Match(p["id"], cand["id"], "competencia"))
                 usadas_por_valor.add(cand["id"])
                 continue
-        
+
         cand = next(
             (n for n in abertas
              if n["id"] not in usadas_por_valor
@@ -100,13 +99,22 @@ def executar(conn, data_base) -> dict[str, int]:
     pagamentos = conn.execute(
         "SELECT id, data, valor, cnpj_pagador, referencia FROM pagamentos WHERE data <= %s", (data_base,)
     ).fetchall()
+    # Decisões do agente aprovadas por humano são definitivas: as regras não mexem
+    # nesses pagamentos nem usam essas notas de novo.
+    decididos = conn.execute(
+        "SELECT pagamento_id, nota_id FROM conciliacao_pagamentos WHERE metodo = 'agente'"
+    ).fetchall()
+    pag_fechados = {r["pagamento_id"] for r in decididos}
+    notas_fechadas = {r["nota_id"] for r in decididos}
+    notas = [n for n in notas if n["id"] not in notas_fechadas]
+    pagamentos = [p for p in pagamentos if p["id"] not in pag_fechados]
+
     matches = casar(notas, pagamentos)
     with conn.cursor() as cur:
-        # preserva decisões tomadas por humano/agente (fase 2); refaz só as automáticas
         cur.execute("DELETE FROM conciliacao_pagamentos WHERE metodo IS DISTINCT FROM 'agente'")
         cur.executemany(
             """INSERT INTO conciliacao_pagamentos (pagamento_id, nota_id, metodo) VALUES (%s, %s, %s)
-               ON CONFLICT (pagamento_id) DO NOTHING""",
+               ON CONFLICT (pagamento_id, nota_id) DO NOTHING""",
             [(m.pagamento_id, m.nota_id, m.metodo) for m in matches],
         )
     conn.commit()

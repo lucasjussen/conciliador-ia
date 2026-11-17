@@ -3,9 +3,11 @@ import os
 from pathlib import Path
 
 import psycopg
+from dotenv import load_dotenv
 from psycopg.rows import dict_row
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://conc:conc@localhost:5432/conciliador")
+load_dotenv()  # lê o .env da pasta do projeto, se existir
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://conc:conc@127.0.0.1:5432/conciliador")
 DB_DIR = Path(__file__).resolve().parents[1] / "db"
 
 

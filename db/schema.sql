@@ -3,7 +3,7 @@
 -- ser paga até o vencimento. A conciliação cruza contrato x nota x pagamento.
 
 DROP VIEW IF EXISTS vw_divergencias CASCADE;
-DROP TABLE IF EXISTS conciliacao_pagamentos, pagamentos, notas_fiscais, contratos, clientes CASCADE;
+DROP TABLE IF EXISTS propostas_agente, conciliacao_pagamentos, pagamentos, notas_fiscais, contratos, clientes CASCADE;
 
 CREATE TABLE clientes (
     id      serial PRIMARY KEY,
@@ -43,12 +43,30 @@ CREATE TABLE pagamentos (
     referencia     text NOT NULL DEFAULT ''
 );
 
--- Resultado do casamento pagamento -> nota (preenchido por app/casamento.py).
--- metodo: 'numero' (NF citada na referência), 'cnpj_valor' (regra FIFO),
--- 'agente' (fase 2) ou NULL quando não foi possível identificar.
+-- Ligação pagamento -> nota(s). Um pagamento pode quitar várias notas (pagamento
+-- agrupado), por isso valor_alocado diz quanto dele vai para cada nota.
+-- metodo: 'numero', 'competencia', 'cnpj_valor' (regras), 'agente' (aprovado por
+-- humano na fase 2) ou NULL quando não foi possível identificar.
 CREATE TABLE conciliacao_pagamentos (
-    pagamento_id  int PRIMARY KEY REFERENCES pagamentos(id),
-    nota_id       int REFERENCES notas_fiscais(id),
-    metodo        text,
-    executado_em  timestamptz NOT NULL DEFAULT now()
+    id             serial PRIMARY KEY,
+    pagamento_id   int NOT NULL REFERENCES pagamentos(id),
+    nota_id        int REFERENCES notas_fiscais(id),
+    metodo         text,
+    valor_alocado  numeric(12,2),          -- NULL = o pagamento inteiro
+    executado_em   timestamptz NOT NULL DEFAULT now(),
+    UNIQUE NULLS NOT DISTINCT (pagamento_id, nota_id)
+);
+
+-- Propostas do agente aguardando (ou já com) decisão humana.
+CREATE TABLE propostas_agente (
+    pagamento_id   int PRIMARY KEY REFERENCES pagamentos(id),
+    thread_id      text NOT NULL,          -- conversa do agente no checkpointer (Redis)
+    nota_numeros   int[] NOT NULL DEFAULT '{}',
+    confianca      text,
+    justificativa  text,
+    valida         boolean,                -- passou na checagem determinística?
+    problema       text,                   -- por que não passou
+    status         text NOT NULL DEFAULT 'pendente',   -- pendente | aprovada | rejeitada
+    criado_em      timestamptz NOT NULL DEFAULT now(),
+    decidido_em    timestamptz
 );

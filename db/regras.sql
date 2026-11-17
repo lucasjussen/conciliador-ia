@@ -43,7 +43,7 @@ notas_validas AS (
     WHERE NOT n.cancelada
 ),
 pagos AS (
-    SELECT cp.nota_id, sum(p.valor) AS total_pago, string_agg(p.id::text, ',') AS pagamentos
+    SELECT cp.nota_id, sum(coalesce(cp.valor_alocado, p.valor)) AS total_pago, string_agg(p.id::text, ',') AS pagamentos
     FROM conciliacao_pagamentos cp JOIN pagamentos p ON p.id = cp.pagamento_id
     WHERE cp.nota_id IS NOT NULL
     GROUP BY cp.nota_id
@@ -90,11 +90,12 @@ WHERE n.ordem = 1 AND n.vencimento < data_base
   AND NOT EXISTS (SELECT 1 FROM pagos pg WHERE pg.nota_id = n.id)
 
 UNION ALL
--- 6. Entrada no extrato que não foi ligada a nenhuma nota
+-- 6. Entrada no extrato que não foi ligada a nenhuma nota (nem por regra, nem pelo agente)
 SELECT 'PAGAMENTO_NAO_IDENTIFICADO', format('P%s', p.id),
        NULL, NULL, NULL, p.id, NULL, p.valor,
        format('Pagador %s, referência "%s"', p.cnpj_pagador, p.referencia)
 FROM pagamentos p
-LEFT JOIN conciliacao_pagamentos cp ON cp.pagamento_id = p.id
-WHERE p.data <= data_base AND cp.nota_id IS NULL
+WHERE p.data <= data_base
+  AND NOT EXISTS (SELECT 1 FROM conciliacao_pagamentos cp
+                  WHERE cp.pagamento_id = p.id AND cp.nota_id IS NOT NULL)
 $$;

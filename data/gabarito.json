@@ -103,5 +103,63 @@
       "tipo": "PAGAMENTO_NAO_IDENTIFICADO",
       "ref": "P174"
     }
+  ],
+  "ligacoes": [
+    {
+      "pagamento_id": 172,
+      "notas": []
+    },
+    {
+      "pagamento_id": 173,
+      "notas": []
+    },
+    {
+      "pagamento_id": 174,
+      "notas": []
+    },
+    {
+      "pagamento_id": 175,
+      "notas": [
+        1013,
+        1031
+      ],
+      "caso": "AGRUPADO"
+    },
+    {
+      "pagamento_id": 176,
+      "notas": [
+        1120,
+        1158
+      ],
+      "caso": "AGRUPADO"
+    },
+    {
+      "pagamento_id": 177,
+      "notas": [
+        1068
+      ],
+      "caso": "TERCEIRO"
+    },
+    {
+      "pagamento_id": 178,
+      "notas": [
+        1124
+      ],
+      "caso": "TERCEIRO"
+    },
+    {
+      "pagamento_id": 179,
+      "notas": [
+        1105
+      ],
+      "caso": "FILIAL"
+    },
+    {
+      "pagamento_id": 180,
+      "notas": [
+        1166
+      ],
+      "caso": "FILIAL"
+    }
   ]
 }

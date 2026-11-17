@@ -17,10 +17,11 @@ except Exception:
 
 @pytest.mark.skipif(not TEM_BANCO, reason="sem Postgres")
 def test_regras_baseline():
-    """Trava a linha de base: se uma mudança piorar as regras, o teste quebra."""
+    """Só regras: acham todos os erros (recall 100%), mas os casos difíceis da fase 2
+    geram alarmes falsos. Trava essa linha de base; quem fecha a precisão é o agente."""
     d = date(2026, 11, 16)
     dados = gerar(7, d)
     gravar(dados)
     _, divs = conciliar(d)
     r = avaliar.avaliar(divs, dados["gabarito"])["geral"]
-    assert r["precisao"] == 1.0 and r["recall"] == 1.0
+    assert r["recall"] == 1.0 and r["precisao"] >= 0.6
