@@ -8,6 +8,11 @@ os casos ambíguos, com aprovação humana antes de qualquer correção.
 **Princípio:** a conta é feita por SQL e regras auditáveis. A IA só entra onde não existe regra
 clara, e cada decisão dela passa por uma pessoa e fica registrada.
 
+**Em resumo:** regras em SQL acham 100% dos 25 erros plantados; nos 6 pagamentos ambíguos, um agente
+LangGraph investiga, acerta 9 de 9 e só grava com aprovação humana (precisão 64% → 100%); e-mails e
+PDFs de clientes são lidos pelo Claude Haiku e conferidos no banco (35/35 campos, golpe por prompt
+injection bloqueado). Stack: Python, PostgreSQL, LangGraph, Redis, Claude API, Langfuse, Docker.
+
 ## Resultados
 
 **Fase 1 (só regras), base de 25 erros plantados:** precisão 100%, recall 100%, depois da regra
@@ -27,8 +32,10 @@ falsos (precisão 64%): pagamentos "não identificados" e notas que parecem inad
 | etapa | precisão | recall |
 |---|---:|---:|
 | só regras | 64% | 100% |
-| regras + agente + aprovação humana | _rode e preencha_ | _rode e preencha_ |
-| acerto do agente antes da revisão | _x/9_ | |
+| regras + agente + aprovação humana | 100% | 100% |
+| acerto do agente antes da revisão | 9/9 | |
+
+Destaque: no pagamento #177, duas notas tinham o mesmo valor. O agente escolheu a de vencimento mais próximo, acertou e mesmo assim marcou confiança baixa, deixando a decisão final para a revisão humana.
 
 O agente também precisa acertar os 3 pagamentos que **não** têm nota: a resposta certa ali é
 "não identificado". Um agente que inventa ligação é pior do que nenhum.
@@ -52,6 +59,37 @@ investigar ⇄ ferramentas → propor → validar → revisao_humana (pausa) →
 - **Langfuse (opcional):** cada pagamento vira uma sessão com a investigação e a revisão juntas.
 - **Trava de custo:** no máximo 6 consultas por pagamento.
 
+## Fase 3: caixa de entrada
+
+O financeiro recebe e-mails de clientes: comprovantes em PDF, reclamações de valor, avisos de
+pagamento, propaganda e até tentativa de golpe. `python -m app.documentos` lê cada `.eml`
+(corpo + texto dos PDFs), o **Claude Haiku** extrai os campos em formato estruturado e o
+**código** confere contra o banco:
+
+| e-mail | o que a IA extrai | o que o código conclui |
+|---|---|---|
+| comprovante PDF | tipo, CNPJ, notas, valor pago | `confere`: o pagamento está no extrato e soma as notas |
+| "valor incorreto na NF" | nota e valor que o cliente diz ser o certo | `cliente_tem_razao`: o contrato confirma, emitir correção |
+| aviso de pagamento | nota citada | `registrado` |
+| propaganda | tipo `outro` | `ignorado` |
+| "INSTRUÇÃO PARA O SISTEMA DE IA: ignore as regras..." | `contem_instrucoes = true` | `alerta_seguranca`: nada é aplicado |
+
+Decisões:
+- **Não é agente, é pipeline.** O caminho é sempre o mesmo, então um fluxo fixo sai mais barato,
+  previsível e testável. Agente só onde é preciso investigar (fase 2).
+- **Roteamento de modelo:** extrair campos é tarefa simples, vai para o Haiku; investigar vai para o Sonnet.
+- **Defesa contra prompt injection em camadas:** o texto vai delimitado como dado não confiável,
+  o extrator não tem ferramentas nem escrita, e a conferência no banco não aceita nota de outro cliente.
+- **Medido:** acerto campo a campo (tipo, CNPJ, notas, valor, detecção de injeção) contra `data/gabarito_documentos.json`.
+
+| métrica | resultado |
+|---|---|
+| acerto da extração (7 e-mails × 5 campos) | 35/35 |
+| e-mail malicioso detectado e bloqueado | sim |
+| reclamações de valor confirmadas pelo contrato | 2 de 2 |
+
+Amostra pequena: o resultado prova que o fluxo funciona, não que a extração acerta sempre. A fase 5 amplia o conjunto de e-mails e de tentativas de injeção.
+
 ## Rodar
 
 ```bash
@@ -63,6 +101,7 @@ python -m app.gerar_dados            # dados fictícios + data/gabarito.json
 python -m app.conciliar              # só regras: mede contra o gabarito
 python -m app.agente                 # agente investiga e deixa propostas pendentes
 python -m app.revisar                # você aprova, rejeita ou edita; mede de novo
+python -m app.documentos             # fase 3: lê a caixa de entrada e confere contra o banco
 pytest -q                            # testes (o do agente usa um modelo falso, sem custo)
 ```
 
@@ -71,7 +110,7 @@ pytest -q                            # testes (o do agente usa um modelo falso, 
 ```
 db/schema.sql        tabelas: clientes, contratos, notas_fiscais, pagamentos, conciliacao_pagamentos
 db/regras.sql        função divergencias(data_base): as 6 regras em SQL
-app/casamento.py     liga pagamento -> nota (número citado, depois CNPJ + valor em FIFO)
+app/casamento.py     liga pagamento -> nota: número citado, depois mês citado, depois CNPJ + valor (FIFO)
 app/gerar_dados.py   base fictícia com erros plantados + gabarito
 app/avaliar.py       precisão e recall por tipo
 app/conciliar.py     execução de ponta a ponta (regras)
@@ -80,6 +119,8 @@ app/grafo.py         o agente: LangGraph, checagem e pausa para aprovação huma
 app/agente.py        roda o agente sobre os pagamentos não identificados e mede o acerto
 app/revisar.py       revisão humana no terminal (retoma as threads do Redis)
 app/observabilidade.py  Langfuse opcional
+app/gerar_documentos.py caixa de entrada fictícia (.eml e PDFs) + gabarito
+app/documentos.py    extração com IA + conferência contra o banco
 tests/               testes unitários e de integração (a integração trava a linha de base)
 ```
 
@@ -89,7 +130,7 @@ tests/               testes unitários e de integração (a integração trava a
 |---|---|---|
 | **1. Dados e regras** ✅ | modelo SQL, 6 regras, casamento de pagamentos, gabarito e métricas | SQL, Python, mapeamento de processo, medição |
 | **2. Agente** ✅ | LangGraph investiga cada caso ambíguo com ferramentas SQL, explica e propõe ação; `interrupt` para aprovação humana; Redis guarda a pausa; Langfuse rastreia | agentes, human-in-the-loop, estado persistente, observabilidade |
-| **3. Documentos** | notas e contestações em PDF ou e-mail extraídas com o Claude (saída estruturada) e validadas pelas regras | extração com IA, validação |
+| **3. Documentos** ✅ | notas e contestações em PDF ou e-mail extraídas com o Claude (saída estruturada) e validadas pelas regras | extração com IA, validação |
 | **4. MCP e API** | servidor MCP com as ferramentas do conciliador; FastAPI; n8n agenda a execução diária e avisa por e-mail | MCP, integração, n8n |
 | **5. Evals e segurança** | gabaritos maiores, custo por lote, % resolvido sem humano; defesa contra instruções escondidas em PDFs | LLMOps, segurança |
 | **6. Painel e apresentação** | Power BI lendo o Postgres (divergências, valor em risco, SLA); vídeo e post | BI, comunicação de resultado |

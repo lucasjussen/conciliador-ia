@@ -241,6 +241,9 @@ def main() -> None:
         json.dumps({"seed": a.seed, "data_base": a.data_base.isoformat(), "divergencias": dados["gabarito"],
                     "ligacoes": dados["ligacoes"]},
                    ensure_ascii=False, indent=2), encoding="utf-8")
+    from .gerar_documentos import gerar_documentos
+    docs = gerar_documentos(dados, a.data_base)
+    print(f"{len(docs)} e-mails na caixa de entrada -> data/caixa_entrada/")
     print(f"{len(dados['clientes'])} clientes, {len(dados['contratos'])} contratos, {len(dados['notas'])} notas, "
           f"{len(dados['pagamentos'])} pagamentos, {len(dados['gabarito'])} erros plantados, "
           f"{sum(1 for l in dados['ligacoes'] if l['notas'])} casos difíceis -> data/gabarito.json")

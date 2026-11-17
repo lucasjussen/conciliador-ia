@@ -37,7 +37,7 @@ class Oraculo:
     def bind_tools(self, _):
         return self
 
-    def with_structured_output(self, _):
+    def with_structured_output(self, _, **__):
         oraculo = self
 
         class S:

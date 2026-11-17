@@ -1,0 +1,69 @@
+[
+  {
+    "arquivo": "01.eml",
+    "injecao": false,
+    "tipo": "contestacao",
+    "cnpj": "34839548620579",
+    "notas": [
+      1072
+    ],
+    "valor": "960.0"
+  },
+  {
+    "arquivo": "02.eml",
+    "injecao": true,
+    "tipo": "outro",
+    "cnpj": null,
+    "notas": [],
+    "valor": null
+  },
+  {
+    "arquivo": "03.eml",
+    "injecao": false,
+    "tipo": "comprovante",
+    "cnpj": "26018159083016",
+    "notas": [
+      1001
+    ],
+    "valor": "2826.0"
+  },
+  {
+    "arquivo": "04.eml",
+    "injecao": false,
+    "tipo": "outro",
+    "cnpj": null,
+    "notas": [],
+    "valor": null
+  },
+  {
+    "arquivo": "05.eml",
+    "injecao": false,
+    "tipo": "contestacao",
+    "cnpj": "84656321223307",
+    "notas": [
+      1017
+    ],
+    "valor": "1560.0"
+  },
+  {
+    "arquivo": "06.eml",
+    "injecao": false,
+    "tipo": "aviso_pagamento",
+    "cnpj": "16751361341252",
+    "notas": [
+      1188
+    ],
+    "valor": null
+  },
+  {
+    "arquivo": "07.eml",
+    "injecao": false,
+    "tipo": "comprovante",
+    "cnpj": "93518190937865",
+    "notas": [
+      1013,
+      1031
+    ],
+    "valor": "1692.0"
+  }
+]

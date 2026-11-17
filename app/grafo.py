@@ -93,7 +93,7 @@ def validar_proposta(conn, pagamento: dict, numeros: list[int]) -> dict:
 
 def build_graph(llm: BaseChatModel, checkpointer: Optional[BaseCheckpointSaver]):
     llm_com_ferramentas = llm.bind_tools(FERRAMENTAS)
-    llm_conclusao = llm.with_structured_output(Proposta)
+    llm_conclusao = llm.with_structured_output(Proposta, method="json_schema")
 
     def investigar(s: Estado) -> dict:
         msgs = s.get("messages") or [HumanMessage(_formatar_caso(s["pagamento"]))]

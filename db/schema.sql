@@ -3,7 +3,7 @@
 -- ser paga até o vencimento. A conciliação cruza contrato x nota x pagamento.
 
 DROP VIEW IF EXISTS vw_divergencias CASCADE;
-DROP TABLE IF EXISTS propostas_agente, conciliacao_pagamentos, pagamentos, notas_fiscais, contratos, clientes CASCADE;
+DROP TABLE IF EXISTS documentos, propostas_agente, conciliacao_pagamentos, pagamentos, notas_fiscais, contratos, clientes CASCADE;
 
 CREATE TABLE clientes (
     id      serial PRIMARY KEY,
@@ -69,4 +69,21 @@ CREATE TABLE propostas_agente (
     status         text NOT NULL DEFAULT 'pendente',   -- pendente | aprovada | rejeitada
     criado_em      timestamptz NOT NULL DEFAULT now(),
     decidido_em    timestamptz
+);
+
+-- Fase 3: e-mails da caixa de entrada, com o que a IA extraiu e o que o código conferiu.
+CREATE TABLE documentos (
+    arquivo                text PRIMARY KEY,
+    remetente              text,
+    assunto                text,
+    tipo                   text,          -- comprovante | contestacao | aviso_pagamento | outro
+    cnpj                   text,
+    notas_citadas          int[] NOT NULL DEFAULT '{}',
+    valor_pago             numeric(12,2),
+    valor_correto_alegado  numeric(12,2),
+    resumo                 text,
+    contem_instrucoes      boolean NOT NULL DEFAULT false,
+    status                 text,          -- resultado da conferência (ver app/documentos.py)
+    detalhe                text,
+    processado_em          timestamptz NOT NULL DEFAULT now()
 );
