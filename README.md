@@ -199,7 +199,7 @@ US$ 2 / 10. Cada execução grava um JSON em `data/evals/resultados/` para compa
 
 ## Fase 6: painel no Power BI
 
-![painel](powerbi/referencia-painel.png)
+![painel](powerbi/painel.png)
 
 **Decisão:** a conta fica no banco, não no Power BI. As visões `vw_bi_*` já entregam valor em risco
 por linha, cliente, dias e faixa de atraso; o painel só soma e desenha. Assim o número do painel é o
