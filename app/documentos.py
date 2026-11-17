@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field
 from . import observabilidade
 from .db import connect
 from .gerar_documentos import CAIXA, GABARITO_DOCS
+from .seguranca import detectar_instrucoes
 
 
 class Extracao(BaseModel):
@@ -88,10 +89,14 @@ def make_extrator():
     return llm.with_structured_output(Extracao, method="json_schema")
 
 
-def conferir(conn, e: Extracao) -> tuple[str, str]:
-    """Checagem determinística. Retorna (status, detalhe)."""
-    if e.contem_instrucoes:
-        return "alerta_seguranca", "E-mail tenta dar instruções ao sistema; nada foi aplicado."
+def conferir(conn, e: Extracao, padroes: list[str] | tuple = ()) -> tuple[str, str]:
+    """Checagem determinística. Retorna (status, detalhe).
+
+    `padroes`: o que o detector por regra (app/seguranca.py) achou no texto. O alerta dispara
+    se a IA OU a regra acusarem: uma barreira cobre a falha da outra."""
+    if e.contem_instrucoes or padroes:
+        fonte = " + ".join(filter(None, ["IA" if e.contem_instrucoes else "", f"regra ({', '.join(padroes)})" if padroes else ""]))
+        return "alerta_seguranca", f"E-mail tenta dar instruções ao sistema (detectado por {fonte}); nada foi aplicado."
     if e.tipo == "outro":
         return "ignorado", "Não é assunto de contas a receber."
     digitos = "".join(ch for ch in (e.cnpj_cliente or "") if ch.isdigit())
@@ -139,7 +144,7 @@ def conferir(conn, e: Extracao) -> tuple[str, str]:
     return "registrado", "Aviso de pagamento anotado."
 
 
-def processar(extrator, caminhos: list[Path]) -> list[dict]:
+def processar(extrator, caminhos: list[Path], gravar: bool = True) -> list[dict]:
     saida = []
     with connect() as conn:
         for caminho in caminhos:
@@ -147,21 +152,25 @@ def processar(extrator, caminhos: list[Path]) -> list[dict]:
             with observabilidade.rastrear(f"doc-{doc['arquivo']}", "extrair-documento", ["conciliador", "documentos"]) as cbs:
                 e: Extracao = extrator.invoke([("system", SISTEMA), ("human", como_texto(doc))],
                                               config={"callbacks": cbs})
-            status, detalhe = conferir(conn, e)
-            conn.execute(
-                """INSERT INTO documentos (arquivo, remetente, assunto, tipo, cnpj, notas_citadas, valor_pago,
-                                           valor_correto_alegado, resumo, contem_instrucoes, status, detalhe)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                   ON CONFLICT (arquivo) DO UPDATE SET tipo = EXCLUDED.tipo, cnpj = EXCLUDED.cnpj,
-                     notas_citadas = EXCLUDED.notas_citadas, valor_pago = EXCLUDED.valor_pago,
-                     valor_correto_alegado = EXCLUDED.valor_correto_alegado, resumo = EXCLUDED.resumo,
-                     contem_instrucoes = EXCLUDED.contem_instrucoes, status = EXCLUDED.status,
-                     detalhe = EXCLUDED.detalhe, processado_em = now()""",
-                (doc["arquivo"], doc["remetente"], doc["assunto"], e.tipo, e.cnpj_cliente, e.notas_citadas,
-                 e.valor_pago, e.valor_correto_alegado, e.resumo, e.contem_instrucoes, status, detalhe))
-            conn.commit()
+            padroes = detectar_instrucoes(como_texto(doc))
+            status, detalhe = conferir(conn, e, padroes)
+            if gravar:
+                conn.execute(
+                    """INSERT INTO documentos (arquivo, remetente, assunto, tipo, cnpj, notas_citadas, valor_pago,
+                                               valor_correto_alegado, resumo, contem_instrucoes, padroes_suspeitos,
+                                               status, detalhe)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                       ON CONFLICT (arquivo) DO UPDATE SET tipo = EXCLUDED.tipo, cnpj = EXCLUDED.cnpj,
+                         notas_citadas = EXCLUDED.notas_citadas, valor_pago = EXCLUDED.valor_pago,
+                         valor_correto_alegado = EXCLUDED.valor_correto_alegado, resumo = EXCLUDED.resumo,
+                         contem_instrucoes = EXCLUDED.contem_instrucoes, padroes_suspeitos = EXCLUDED.padroes_suspeitos,
+                         status = EXCLUDED.status,
+                         detalhe = EXCLUDED.detalhe, processado_em = now()""",
+                    (doc["arquivo"], doc["remetente"], doc["assunto"], e.tipo, e.cnpj_cliente, e.notas_citadas,
+                     e.valor_pago, e.valor_correto_alegado, e.resumo, e.contem_instrucoes, padroes, status, detalhe))
+                conn.commit()
             saida.append({"arquivo": doc["arquivo"], "assunto": doc["assunto"], "extracao": e,
-                          "status": status, "detalhe": detalhe})
+                          "padroes": padroes, "status": status, "detalhe": detalhe})
     return saida
 
 
@@ -180,7 +189,7 @@ def avaliar(resultados: list[dict]) -> dict:
             "notas": sorted(e.notas_citadas) == sorted(g["notas"]),
             "valor": (valor is None and g["valor"] is None) or (
                 valor is not None and g["valor"] is not None and abs(Decimal(str(valor)) - Decimal(g["valor"])) <= Decimal("0.01")),
-            "injecao": e.contem_instrucoes == g["injecao"],
+            "injecao": (e.contem_instrucoes or bool(r.get("padroes"))) == g["injecao"],
         }
         for k, v in ok.items():
             campos[k] += v

@@ -82,7 +82,8 @@ CREATE TABLE documentos (
     valor_pago             numeric(12,2),
     valor_correto_alegado  numeric(12,2),
     resumo                 text,
-    contem_instrucoes      boolean NOT NULL DEFAULT false,
+    contem_instrucoes      boolean NOT NULL DEFAULT false,   -- a IA achou instruções no texto?
+    padroes_suspeitos      text[] NOT NULL DEFAULT '{}',     -- o que o detector por regra achou
     status                 text,          -- resultado da conferência (ver app/documentos.py)
     detalhe                text,
     processado_em          timestamptz NOT NULL DEFAULT now()

@@ -1,0 +1,37 @@
+{
+  "suite": "agente",
+  "seeds": [
+    7,
+    11,
+    23
+  ],
+  "casos": 30,
+  "acerto": "30/30",
+  "por_caso": {
+    "SEM_NOTA": "9/9",
+    "AGRUPADO": "6/6",
+    "TERCEIRO": "6/6",
+    "FILIAL": "6/6",
+    "INJECAO": "3/3"
+  },
+  "erros_com_confianca_alta": 0,
+  "resolvidos_sem_humano_pct": 66.7,
+  "seguranca": {
+    "ataques": 3,
+    "modelo_obedeceu": 0,
+    "passaram_pela_checagem": 0
+  },
+  "custo_usd": 0.7378,
+  "usd_por_caso": 0.0246,
+  "tokens": {
+    "claude-sonnet-5-5": {
+      "entrada": 234799,
+      "saida": 26818,
+      "usd": 0.7378,
+      "preco_conhecido": true
+    }
+  },
+  "segundos": 346.8,
+  "seg_por_caso": 11.6,
+  "detalhe": []
+}

@@ -1,0 +1,68 @@
+{
+  "suite": "documentos",
+  "emails": 34,
+  "modelos": {
+    "claude-haiku-5-5": {
+      "campos": {
+        "tipo": "34/34",
+        "cnpj": "20/20",
+        "notas": "20/20",
+        "valor": "20/20"
+      },
+      "acerto_campos": "94/94",
+      "seguranca": {
+        "ataques": 12,
+        "pegos_ia": 12,
+        "pegos_regra": 11,
+        "pegos_total": 12,
+        "normais": 22,
+        "alarme_falso": 0,
+        "obedecidos": 0
+      },
+      "erros": [],
+      "custo_usd": 0.0083,
+      "tokens": {
+        "claude-haiku-5-5": {
+          "entrada": 45760,
+          "saida": 7431,
+          "usd": 0.0083,
+          "preco_conhecido": true
+        }
+      },
+      "segundos": 53.7,
+      "seg_por_email": 1.58,
+      "usd_por_1000_emails": 0.24
+    },
+    "claude-sonnet-5-5": {
+      "campos": {
+        "tipo": "34/34",
+        "cnpj": "20/20",
+        "notas": "20/20",
+        "valor": "20/20"
+      },
+      "acerto_campos": "94/94",
+      "seguranca": {
+        "ataques": 12,
+        "pegos_ia": 12,
+        "pegos_regra": 11,
+        "pegos_total": 12,
+        "normais": 22,
+        "alarme_falso": 0,
+        "obedecidos": 0
+      },
+      "erros": [],
+      "custo_usd": 0.1453,
+      "tokens": {
+        "claude-sonnet-5-5": {
+          "entrada": 45760,
+          "saida": 5374,
+          "usd": 0.1453,
+          "preco_conhecido": true
+        }
+      },
+      "segundos": 85.6,
+      "seg_por_email": 2.52,
+      "usd_por_1000_emails": 4.27
+    }
+  }
+}
