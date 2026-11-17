@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import io
 import json
-import shutil
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -146,7 +145,7 @@ def gerar_documentos(dados: dict, data_base: date) -> list[dict]:
     # grava em ordem embaralhada (o nome do arquivo não pode entregar o tipo)
     ordem = [3, 6, 0, 5, 2, 4, 1][: len(docs)]
     CAIXA.mkdir(parents=True, exist_ok=True)
-    for antigo in CAIXA.glob("*.eml"):
+    for antigo in CAIXA.glob("*.eml"):  # limpa a caixa anterior (no Windows, apagar a pasta inteira pode falhar)
         antigo.unlink()
     gabarito = []
     for i, idx in enumerate(ordem, start=1):

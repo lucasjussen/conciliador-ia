@@ -11,7 +11,8 @@ clara, e cada decisão dela passa por uma pessoa e fica registrada.
 **Em resumo:** regras em SQL acham 100% dos 25 erros plantados; nos 6 pagamentos ambíguos, um agente
 LangGraph investiga, acerta 9 de 9 e só grava com aprovação humana (precisão 64% → 100%); e-mails e
 PDFs de clientes são lidos pelo Claude Haiku e conferidos no banco (35/35 campos, golpe por prompt
-injection bloqueado). Stack: Python, PostgreSQL, LangGraph, Redis, Claude API, Langfuse, Docker.
+injection bloqueado). Integração por API (FastAPI), servidor MCP e n8n.
+Stack: Python, PostgreSQL, LangGraph, Redis, Claude API, Langfuse, FastAPI, MCP, n8n, Docker.
 
 ## Resultados
 
@@ -90,6 +91,51 @@ Decisões:
 
 Amostra pequena: o resultado prova que o fluxo funciona, não que a extração acerta sempre. A fase 5 amplia o conjunto de e-mails e de tentativas de injeção.
 
+## Fase 4: integração (API, MCP e n8n)
+
+Três portas para o mesmo serviço (`app/servico.py`), para a regra de negócio existir num lugar só:
+
+**API HTTP** (`app/api.py`, FastAPI, documentação em `http://localhost:8000/docs`)
+
+| rota | o que faz |
+|---|---|
+| `GET /saude` | verificação de vida (sem chave) |
+| `POST /conciliar` | roda a conciliação e devolve total, por tipo, **valor em risco** e um HTML pronto para e-mail |
+| `GET /divergencias?tipo=` | lista as divergências |
+| `GET /propostas` | propostas do agente esperando aprovação |
+| `GET /documentos?status=` | e-mails processados na fase 3 |
+
+Segurança: cabeçalho `X-API-Key`, comparação em tempo constante e **falha fechada** (sem
+`CONCILIADOR_API_KEY` configurada, a API recusa tudo).
+
+**Servidor MCP** (`app/mcp_server.py`): o Claude Desktop, o Claude Code ou qualquer cliente MCP passa a
+consultar o conciliador em linguagem natural ("quanto dinheiro está em risco?", "quais notas da Rota
+estão em aberto?"). Seis ferramentas, **todas somente leitura**: consultar não altera nada; executar e
+aprovar continuam com a API agendada e com a revisão humana.
+
+Claude Desktop (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "conciliador": {
+      "command": "C:\\Users\\lucas\\conciliador-ia\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "app.mcp_server"],
+      "env": { "PYTHONPATH": "C:\\Users\\lucas\\conciliador-ia" }
+    }
+  }
+}
+```
+
+**n8n** (`n8n/conciliacao-diaria.json`): dias úteis às 7h chama `POST /conciliar`; havendo
+divergência, manda o resumo por e-mail. Tem também um gatilho "Rodar agora (teste)". Credenciais
+ficam no n8n, nunca no JSON. **Executado de ponta a ponta no n8n 2.35.7** (API local + servidor
+SMTP de teste): o e-mail chegou com o assunto "Conciliação 2026-11-16: 39 divergências,
+R$ 45.186,23 em risco". Também rodando na máquina local com n8n 2.47 e Gmail: o resumo diário
+chega por e-mail.
+
+Testes: a API (autenticação e respostas) e o MCP (cliente MCP de verdade conversando com o servidor
+por stdio) estão em `tests/test_fase4.py`.
+
 ## Rodar
 
 ```bash
@@ -102,6 +148,7 @@ python -m app.conciliar              # só regras: mede contra o gabarito
 python -m app.agente                 # agente investiga e deixa propostas pendentes
 python -m app.revisar                # você aprova, rejeita ou edita; mede de novo
 python -m app.documentos             # fase 3: lê a caixa de entrada e confere contra o banco
+docker compose up -d --build         # fase 4: sobe também a API (porta 8000) e o n8n (porta 5678)
 pytest -q                            # testes (o do agente usa um modelo falso, sem custo)
 ```
 
@@ -121,6 +168,11 @@ app/revisar.py       revisão humana no terminal (retoma as threads do Redis)
 app/observabilidade.py  Langfuse opcional
 app/gerar_documentos.py caixa de entrada fictícia (.eml e PDFs) + gabarito
 app/documentos.py    extração com IA + conferência contra o banco
+app/servico.py       consultas compartilhadas pela API e pelo MCP
+app/api.py           API HTTP com chave de acesso
+app/mcp_server.py    servidor MCP somente leitura
+n8n/                 workflow de execução diária com e-mail
+Dockerfile           imagem da API
 tests/               testes unitários e de integração (a integração trava a linha de base)
 ```
 
@@ -131,6 +183,6 @@ tests/               testes unitários e de integração (a integração trava a
 | **1. Dados e regras** ✅ | modelo SQL, 6 regras, casamento de pagamentos, gabarito e métricas | SQL, Python, mapeamento de processo, medição |
 | **2. Agente** ✅ | LangGraph investiga cada caso ambíguo com ferramentas SQL, explica e propõe ação; `interrupt` para aprovação humana; Redis guarda a pausa; Langfuse rastreia | agentes, human-in-the-loop, estado persistente, observabilidade |
 | **3. Documentos** ✅ | notas e contestações em PDF ou e-mail extraídas com o Claude (saída estruturada) e validadas pelas regras | extração com IA, validação |
-| **4. MCP e API** | servidor MCP com as ferramentas do conciliador; FastAPI; n8n agenda a execução diária e avisa por e-mail | MCP, integração, n8n |
+| **4. MCP e API** ✅ | servidor MCP com as ferramentas do conciliador; FastAPI; n8n agenda a execução diária e avisa por e-mail | MCP, integração, n8n |
 | **5. Evals e segurança** | gabaritos maiores, custo por lote, % resolvido sem humano; defesa contra instruções escondidas em PDFs | LLMOps, segurança |
 | **6. Painel e apresentação** | Power BI lendo o Postgres (divergências, valor em risco, SLA); vídeo e post | BI, comunicação de resultado |

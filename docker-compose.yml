@@ -31,6 +31,33 @@ services:
       interval: 3s
       retries: 10
 
+  # Fase 4: API do conciliador. A chave vem do .env (CONCILIADOR_API_KEY).
+  api:
+    build: .
+    container_name: conciliador-api
+    environment:
+      DATABASE_URL: postgresql://conc:conc@postgres:5432/conciliador
+      CONCILIADOR_API_KEY: ${CONCILIADOR_API_KEY:?defina CONCILIADOR_API_KEY no .env}
+      DATA_BASE: ${DATA_BASE:-}
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  # Fase 4: n8n agenda a conciliação e manda o resumo por e-mail. Chama a API por http://api:8000.
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: conciliador-n8n
+    environment:
+      GENERIC_TIMEZONE: America/Sao_Paulo
+      TZ: America/Sao_Paulo
+    ports:
+      - "127.0.0.1:5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on: [api]
+
 volumes:
   pg_data:
   redis_data:
+  n8n_data:
